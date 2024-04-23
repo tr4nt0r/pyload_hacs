@@ -21,6 +21,8 @@ SCAN_INTERVAL = timedelta(seconds=10)
 class PyLoadCoordinator(DataUpdateCoordinator):
     """pyLoad coordinator."""
 
+    pyload: PyLoadAPI
+
     def __init__(self, hass: HomeAssistant, pyload: PyLoadAPI) -> None:
         """Initialize pyLoad coordinator."""
         super().__init__(

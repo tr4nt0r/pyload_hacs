@@ -1,11 +1,24 @@
 {
   "entity": {
     "binary_sensor": {
-      "download": {
-        "default": "mdi:play"
-      },
       "captcha": {
         "default": "mdi:barcode-scan"
+      }
+    },
+    "switch": {
+      "download": {
+        "default": "mdi:play",
+        "state": {
+          "on": "mdi:play",
+          "off": "mdi:pause"
+        }
+      },
+      "reconnect": {
+        "default": "mdi:restart",
+        "state": {
+          "on": "mdi:restart",
+          "off": "mdi:restart-off"
+        }
       }
     },
     "sensor": {

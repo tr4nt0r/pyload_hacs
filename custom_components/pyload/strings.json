@@ -59,9 +59,14 @@
     "binary_sensor": {
       "captcha": {
         "name": "Captcha"
-      },
+      }
+    },
+    "switch": {
       "download": {
-        "name": "Running"
+        "name": "Pause/Resume queue"
+      },
+      "reconnect": {
+        "name": "Reconnect"
       }
     }
   },
