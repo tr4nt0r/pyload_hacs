@@ -1,0 +1,90 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "Device is already configured",
+            "reauth_successful": "Re-authentication was successful",
+            "reconfigure_successful": "Re-configuration was successful"
+        },
+        "error": {
+            "cannot_connect": "Failed to connect",
+            "invalid_auth": "Invalid authentication",
+            "unknown": "Unexpected error"
+        },
+        "step": {
+            "reauth_confirm": {
+                "data": {
+                    "password": "Password",
+                    "username": "Username"
+                },
+                "description": "Please reenter the password for: {username}",
+                "title": "Authentication expired for {name}"
+            },
+            "reconfigure_confirm": {
+                "data": {
+                    "host": "Host",
+                    "password": "Password",
+                    "port": "Port",
+                    "ssl": "Uses an SSL certificate",
+                    "username": "Username",
+                    "verify_ssl": "Verify SSL certificate"
+                }
+            },
+            "user": {
+                "data": {
+                    "host": "Host",
+                    "password": "Password",
+                    "port": "Port",
+                    "ssl": "Uses an SSL certificate",
+                    "username": "Username",
+                    "verify_ssl": "Verify SSL certificate"
+                }
+            }
+        }
+    },
+    "device": {
+        "pyload": {
+            "name": "pyLoad"
+        }
+    },
+    "entity": {
+        "sensor": {
+            "active": {
+                "name": "Active Downloads"
+            },
+            "queue": {
+                "name": "Downloads in queue"
+            },
+            "speed": {
+                "name": "Download speed"
+            },
+            "total": {
+                "name": "Downloads total"
+            }
+        }
+    },
+    "exceptions": {
+        "authentication_exception": {
+            "message": "Authentication failed for {username}, check your login credentials"
+        },
+        "connection_exception": {
+            "message": "Unable to connect and retrieve data from pyLoad API"
+        },
+        "parse_exception": {
+            "message": "Unable to parse data from pyLoad API"
+        }
+    },
+    "issues": {
+        "deprecated_yaml_import_issue_cannot_connect": {
+            "description": "Configuring pyLoad using YAML is being removed but there was a connection error when trying to import the YAML configuration.\n\nPlease verify that you have a stable internet connection and restart Home Assistant to try again or remove the pyLoad YAML configuration from your configuration.yaml file and continue to [set up the integration]({url}) manually.",
+            "title": "The pyLoad YAML configuration import failed"
+        },
+        "deprecated_yaml_import_issue_invalid_auth": {
+            "description": "Configuring pyLoad using YAML is being removed but there was an authentication error when trying to import the YAML configuration.\n\nCorrect the YAML configuration and restart Home Assistant to try again or remove the pyLoad YAML configuration from your configuration.yaml file and continue to [set up the integration]({url}) manually.",
+            "title": "The pyLoad YAML configuration import failed"
+        },
+        "deprecated_yaml_import_issue_unknown": {
+            "description": "Configuring pyLoad using YAML is being removed but there was an unknown error when trying to import the YAML configuration.\n\nEnsure the YAML configuration is correct and restart Home Assistant to try again or remove the pyLoad YAML configuration from your configuration.yaml file and continue to [set up the integration]({url}) manually.",
+            "title": "The pyLoad YAML configuration import failed"
+        }
+    }
+}
