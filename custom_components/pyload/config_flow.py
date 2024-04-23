@@ -14,11 +14,9 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult
 from homeassistant.const import (
     CONF_HOST,
-    CONF_NAME,
     CONF_PASSWORD,
     CONF_PORT,
     CONF_SSL,
-    CONF_URL,
     CONF_USERNAME,
     CONF_VERIFY_SSL,
 )
@@ -29,6 +27,7 @@ import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.issue_registry import IssueSeverity, async_create_issue
 
 from .const import DEFAULT_PORT, DOMAIN
+from .util import api_url
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,6 +44,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
 
 REAUTH_SCHEMA = vol.Schema(
     {
+        vol.Required(CONF_USERNAME): str,
         vol.Required(CONF_PASSWORD): str,
     }
 )
@@ -56,51 +56,22 @@ class PyLoadConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for pyLoad."""
 
     VERSION = 1
-    reauth_entry: ConfigEntry | None = None
-    import_info: dict[str, Any] | None = None
+    config_entry: ConfigEntry | None = None
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Handle the initial step."""
         errors: dict[str, str] = {}
-
-        # prepopulate discovered device with values from yaml config
-        if user_input is None:
-            user_input = self.import_info
-
         if user_input is not None:
-            session = async_create_clientsession(
-                self.hass,
-                user_input.get(CONF_VERIFY_SSL, True),
-                cookie_jar=CookieJar(unsafe=True),
-            )
-            user_input.pop(CONF_URL, None)
-            if host := user_input.get(CONF_HOST):
-                port = user_input[CONF_PORT]
-                proto = "https" if user_input.get(CONF_SSL) else "http"
-                user_input[CONF_URL] = f"{proto}://{host}:{port}/"
-
-            pyload = PyLoadAPI(
-                session,
-                user_input[CONF_URL],
-                user_input[CONF_USERNAME],
-                user_input[CONF_PASSWORD],
-            )
-            try:
-                await pyload.login()
-            except CannotConnect:
-                errors["base"] = "cannot_connect"
-            except InvalidAuth:
-                errors["base"] = "invalid_auth"
-            except Exception:  # pylint: disable=broad-except
-                _LOGGER.exception("Unexpected exception")
-                errors["base"] = "unknown"
-            else:
+            if not (errors := await self.async_auth(user_input)):
                 self._async_abort_entries_match(
                     {CONF_HOST: user_input[CONF_HOST], CONF_PORT: user_input[CONF_PORT]}
                 )
-                return self.async_create_entry(title=f"{host}:{port}", data=user_input)
+                return self.async_create_entry(
+                    title=f"{user_input[CONF_HOST]}:{user_input[CONF_PORT]}",
+                    data=user_input,
+                )
 
         return self.async_show_form(
             step_id="user",
@@ -114,7 +85,7 @@ class PyLoadConfigFlow(ConfigFlow, domain=DOMAIN):
         self, entry_data: Mapping[str, Any]
     ) -> ConfigFlowResult:
         """Perform reauth upon an API authentication error."""
-        self.reauth_entry = self.hass.config_entries.async_get_entry(
+        self.config_entry = self.hass.config_entries.async_get_entry(
             self.context["entry_id"]
         )
         return await self.async_step_reauth_confirm()
@@ -125,58 +96,37 @@ class PyLoadConfigFlow(ConfigFlow, domain=DOMAIN):
         """Dialog that informs the user that reauth is required."""
         errors = {}
 
-        assert self.reauth_entry
+        assert self.config_entry
+        username = self.config_entry.data[CONF_USERNAME]
         if user_input is not None:
-            new_input = self.reauth_entry.data | user_input
-            session = async_create_clientsession(
-                self.hass,
-                new_input.get(CONF_VERIFY_SSL, True),
-                cookie_jar=CookieJar(unsafe=True),
-            )
-            pyload = PyLoadAPI(
-                session,
-                new_input[CONF_URL],
-                new_input[CONF_USERNAME],
-                new_input[CONF_PASSWORD],
-            )
-            try:
-                await pyload.login()
-            except CannotConnect:
-                errors["base"] = "cannot_connect"
-            except InvalidAuth:
-                errors["base"] = "invalid_auth"
-            except Exception:  # pylint: disable=broad-except
-                errors["base"] = "unknown"
-                _LOGGER.exception("Unexpected exception")
-            else:
+            new_input = self.config_entry.data | user_input
+            if not (errors := await self.async_auth(new_input)):
                 self.hass.config_entries.async_update_entry(
-                    self.reauth_entry, data=new_input
+                    self.config_entry, data=new_input
                 )
-
-                await self.hass.config_entries.async_reload(self.reauth_entry.entry_id)
+                self.hass.config_entries.async_update_entry(
+                    self.config_entry, data=new_input
+                )
+                await self.hass.config_entries.async_reload(self.config_entry.entry_id)
                 return self.async_abort(reason="reauth_successful")
 
         return self.async_show_form(
             step_id="reauth_confirm",
             data_schema=REAUTH_SCHEMA,
-            description_placeholders={
-                CONF_NAME: self.reauth_entry.title,
-                CONF_USERNAME: self.reauth_entry.data[CONF_USERNAME],
-            },
+            description_placeholders={CONF_USERNAME: username},
             errors=errors,
         )
 
     async def async_step_import(self, import_info: dict[str, Any]) -> ConfigFlowResult:
         """Import config from yaml."""
         # Raise an issue that this is deprecated and has been imported
-        _LOGGER.debug("Setting up entry from yaml %s", import_info)
         config = {
             CONF_HOST: import_info[CONF_HOST],
             CONF_PASSWORD: import_info.get(CONF_PASSWORD),
             CONF_PORT: import_info.get(CONF_PORT, DEFAULT_PORT),
             CONF_SSL: import_info.get(CONF_SSL, False),
             CONF_USERNAME: import_info.get(CONF_USERNAME),
-            CONF_VERIFY_SSL: False,
+            CONF_VERIFY_SSL: True,
         }
 
         result = await self.async_step_user(config)
@@ -202,7 +152,6 @@ class PyLoadConfigFlow(ConfigFlow, domain=DOMAIN):
             error = result.get("reason")
             if errors := result.get("errors"):
                 error = errors["base"]
-                self.import_info = config
 
             async_create_issue(
                 self.hass,
@@ -217,3 +166,64 @@ class PyLoadConfigFlow(ConfigFlow, domain=DOMAIN):
             )
 
         return result
+
+    async def async_step_reconfigure(
+        self, entry_data: Mapping[str, Any]
+    ) -> ConfigFlowResult:
+        """Perform reconfiguration."""
+        self.config_entry = self.hass.config_entries.async_get_entry(
+            self.context["entry_id"]
+        )
+        return await self.async_step_reconfigure_confirm()
+
+    async def async_step_reconfigure_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Confirm reconfiguration."""
+        errors = {}
+
+        assert self.config_entry
+        if user_input is not None:
+            new_input = self.config_entry.data | user_input
+            if not (errors := await self.async_auth(new_input)):
+                self.hass.config_entries.async_update_entry(
+                    self.config_entry, data=new_input
+                )
+                await self.hass.config_entries.async_reload(self.config_entry.entry_id)
+                return self.async_abort(reason="reconfigure_successful")
+
+        return self.async_show_form(
+            step_id="reconfigure_confirm",
+            data_schema=self.add_suggested_values_to_schema(
+                data_schema=STEP_USER_DATA_SCHEMA,
+                suggested_values=self.config_entry.data,
+            ),
+            errors=errors,
+        )
+
+    async def async_auth(self, user_input: Mapping[str, Any]) -> dict[str, str]:
+        """Auth Helper."""
+
+        errors: dict[str, str] = {}
+        session = async_create_clientsession(
+            self.hass,
+            user_input.get(CONF_VERIFY_SSL, True),
+            cookie_jar=CookieJar(unsafe=True),
+        )
+        pyload = PyLoadAPI(
+            session,
+            api_url(user_input),
+            user_input[CONF_USERNAME],
+            user_input[CONF_PASSWORD],
+        )
+        try:
+            await pyload.login()
+        except CannotConnect:
+            errors["base"] = "cannot_connect"
+        except InvalidAuth:
+            errors["base"] = "invalid_auth"
+        except Exception:  # pylint: disable=broad-except
+            _LOGGER.exception("Unexpected exception")
+            errors["base"] = "unknown"
+
+        return errors

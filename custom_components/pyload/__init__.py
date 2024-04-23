@@ -2,35 +2,25 @@
 
 from __future__ import annotations
 
-import logging
-
 from aiohttp import CookieJar
 from pyloadapi.api import PyLoadAPI
-from pyloadapi.exceptions import CannotConnect, InvalidAuth
+from pyloadapi.exceptions import CannotConnect, InvalidAuth, ParserError
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import (
-    CONF_PASSWORD,
-    CONF_URL,
-    CONF_USERNAME,
-    CONF_VERIFY_SSL,
-    Platform,
-)
+from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, CONF_VERIFY_SSL, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
 
 from .const import DOMAIN
 from .coordinator import PyLoadCoordinator
-
-_LOGGER = logging.getLogger(__name__)
+from .util import api_url
 
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up pyLoad from a config entry."""
-    _LOGGER.debug("Setting up entry from config %s", entry.data)
     session = async_create_clientsession(
         hass,
         entry.data.get(CONF_VERIFY_SSL, True),
@@ -38,7 +28,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     pyload = PyLoadAPI(
         session,
-        entry.data[CONF_URL],
+        api_url(entry.data),
         entry.data[CONF_USERNAME],
         entry.data[CONF_PASSWORD],
     )
@@ -46,10 +36,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     try:
         await pyload.login()
     except CannotConnect as e:
-        raise ConfigEntryNotReady from e
+        raise ConfigEntryNotReady(
+            translation_domain=DOMAIN,
+            translation_key="connection_exception",
+        ) from e
+    except ParserError as e:
+        raise ConfigEntryNotReady(
+            translation_domain=DOMAIN,
+            translation_key="parse_exception",
+        ) from e
     except InvalidAuth as e:
         raise ConfigEntryAuthFailed(
-            "Authentication failed, please reauthenticate pyLoad."
+            translation_domain=DOMAIN,
+            translation_key="authentication_exception",
+            translation_placeholders={CONF_USERNAME: entry.data[CONF_USERNAME]},
         ) from e
 
     coordinator = PyLoadCoordinator(hass, pyload)
