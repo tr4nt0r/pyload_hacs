@@ -47,6 +47,11 @@
         }
     },
     "entity": {
+        "binary_sensor": {
+            "captcha": {
+                "name": "Captcha"
+            }
+        },
         "sensor": {
             "active": {
                 "name": "Active Downloads"
@@ -59,6 +64,14 @@
             },
             "total": {
                 "name": "Downloads total"
+            }
+        },
+        "switch": {
+            "download": {
+                "name": "Pause/Resume queue"
+            },
+            "reconnect": {
+                "name": "Reconnect"
             }
         }
     },
