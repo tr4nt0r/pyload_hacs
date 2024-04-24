@@ -10,7 +10,7 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
 )
 from homeassistant.config_entries import SOURCE_IMPORT, ConfigEntry
-from homeassistant.const import UnitOfDataRate
+from homeassistant.const import UnitOfDataRate, UnitOfInformation
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -29,6 +29,7 @@ class PyLoadSensorEntity(StrEnum):
     QUEUE = "queue"
     TOTAL = "total"
     SPEED = "speed"
+    FREE_SPACE = "free_space"
 
 
 SENSOR_DESCRIPTIONS: dict[str, SensorEntityDescription] = {
@@ -50,6 +51,14 @@ SENSOR_DESCRIPTIONS: dict[str, SensorEntityDescription] = {
         device_class=SensorDeviceClass.DATA_RATE,
         native_unit_of_measurement=UnitOfDataRate.BYTES_PER_SECOND,
         suggested_unit_of_measurement=UnitOfDataRate.MEGABITS_PER_SECOND,
+        suggested_display_precision=1,
+    ),
+    PyLoadSensorEntity.FREE_SPACE: SensorEntityDescription(
+        key=PyLoadSensorEntity.FREE_SPACE,
+        translation_key=PyLoadSensorEntity.FREE_SPACE,
+        device_class=SensorDeviceClass.DATA_SIZE,
+        native_unit_of_measurement=UnitOfInformation.BYTES,
+        suggested_unit_of_measurement=UnitOfInformation.GIBIBYTES,
         suggested_display_precision=1,
     ),
 }
@@ -87,6 +96,7 @@ class PyLoadSensor(CoordinatorEntity, SensorEntity):
 
     _attr_has_entity_name = True
     entity_description: SensorEntityDescription
+    coordinator: PyLoadCoordinator
 
     def __init__(
         self,
@@ -111,4 +121,5 @@ class PyLoadSensor(CoordinatorEntity, SensorEntity):
     @property
     def native_value(self) -> StateType:
         """Return the state of the device."""
+
         return self.coordinator.data[self.entity_description.key]

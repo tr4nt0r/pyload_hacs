@@ -52,9 +52,26 @@
                 "name": "Captcha"
             }
         },
+        "button": {
+            "abort_downloads": {
+                "name": "Abort all running downloads"
+            },
+            "delete_finished": {
+                "name": "Delete finished files/packages"
+            },
+            "restart": {
+                "name": "Restart pyload core"
+            },
+            "restart_failed": {
+                "name": "Restart all failed files"
+            }
+        },
         "sensor": {
             "active": {
                 "name": "Active Downloads"
+            },
+            "free_space": {
+                "name": "Free space"
             },
             "queue": {
                 "name": "Downloads in queue"
